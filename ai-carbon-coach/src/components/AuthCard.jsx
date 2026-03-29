@@ -1,17 +1,54 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/Card';
 import Input from './ui/Input';
 import Button from './ui/Button';
 
 const AuthCard = () => {
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const toggleMode = () => setIsLogin(!isLogin);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Dummy submit handler
-    console.log(isLogin ? 'Logging in...' : 'Signing up...');
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:3000/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store user/token in localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Redirect to "/dashboard"
+        navigate('/dashboard');
+      } else {
+        // Show specific error from backend
+        setError(data.message || 'Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+        setError('Network error: Is your backend server running on http://localhost:3000?');
+      } else {
+        setError(err.message || 'An unexpected error occurred. Please try again.');
+      }
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -26,22 +63,31 @@ const AuthCard = () => {
       </CardHeader>
       
       <CardContent>
+        {error && (
+          <div className="mb-4 p-3 rounded bg-red-50 text-red-600 text-sm border border-red-100 animate-in fade-in slide-in-from-top-1">
+            {error}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input 
             label="Email" 
             type="email" 
             placeholder="student@university.edu" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required 
           />
           <Input 
             label="Password" 
             type="password" 
             placeholder="••••••••" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required 
           />
           
-          <Button type="submit" variant="primary" fullWidth className="mt-6">
-            {isLogin ? 'Log In' : 'Sign Up'}
+          <Button type="submit" variant="primary" fullWidth className="mt-6" disabled={loading}>
+            {loading ? 'Processing...' : (isLogin ? 'Log In' : 'Sign Up')}
           </Button>
           
           <div className="relative my-6">
